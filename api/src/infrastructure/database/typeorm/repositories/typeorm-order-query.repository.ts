@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource, SelectQueryBuilder } from 'typeorm';
 import type {
+  AtRiskOrderResponse,
   OrderDetailResponse,
   OrderListItem,
   OrderListQuery,
+  RiskOrderDetail,
+  RiskOrderListItem,
+  Weather,
 } from '@kuri/contracts';
 import { isOrderDelayed } from '../../../../application/orders/services/delayed-order.policy';
 import type { OrderQueryRepository } from '../../../../application/orders/ports/order-query-repository.port';
@@ -13,6 +17,8 @@ import {
 } from '../entities/order-ingestion.entities';
 import { TypeormOrderEventRepository } from './typeorm-order-event.repository';
 import { TypeormOrderRepository } from './typeorm-order.repository';
+import { RiskAssessmentService } from '../../../../domain/risk/services/risk-assessment.service';
+import { ACTIVE_ORDER_STATUSES } from '../../../../domain/risk/value-objects/risk-rule-config';
 
 type ListRow = {
   order_id: string;
@@ -24,6 +30,9 @@ type ListRow = {
   promised_at: Date;
   total_amount_cents: string;
   updated_at: Date;
+  status_occurred_at?: Date;
+  avg_prep_minutes?: number;
+  weather?: string;
 };
 
 @Injectable()
@@ -32,9 +41,10 @@ export class TypeormOrderQueryRepository implements OrderQueryRepository {
     private readonly dataSource: DataSource,
     private readonly orders: TypeormOrderRepository,
     private readonly events: TypeormOrderEventRepository,
+    private readonly risk: RiskAssessmentService,
   ) {}
 
-  async findDetail(orderId: string): Promise<OrderDetailResponse | null> {
+  async findDetail(orderId: string): Promise<RiskOrderDetail | null> {
     return this.dataSource.transaction(async (manager) => {
       const details = await this.orders.findDetails(manager, orderId);
       if (!details) return null;
@@ -44,7 +54,7 @@ export class TypeormOrderQueryRepository implements OrderQueryRepository {
         }),
         this.events.findByOrderId(manager, orderId),
       ]);
-      return {
+      const response: OrderDetailResponse = {
         order_id: details.order.orderId,
         user_id: details.order.userId,
         city: details.order.city as OrderDetailResponse['city'],
@@ -85,6 +95,28 @@ export class TypeormOrderQueryRepository implements OrderQueryRepository {
           processing_outcome: event.processingOutcome,
           rejection_code: event.rejectionCode,
         })),
+      };
+      const acceptedEvent = timeline.find(
+        (event) => event.status === 'ACCEPTED',
+      );
+      return {
+        ...response,
+        risk: this.risk
+          .assess(
+            {
+              orderId: details.order.orderId,
+              city: details.order.city as RiskOrderDetail['city'],
+              currentStatus: details.order
+                .currentStatus as RiskOrderDetail['current_status'],
+              statusOccurredAt: details.order.statusOccurredAt,
+              acceptedAt: acceptedEvent?.occurredAt ?? null,
+              promisedAt: details.order.promisedAt,
+              weather: details.order.weather as RiskOrderDetail['weather'],
+              averagePreparationMinutes: restaurant?.avgPrepMinutes ?? null,
+            },
+            new Date(),
+          )
+          .toContract(),
       };
     });
   }
@@ -145,6 +177,97 @@ export class TypeormOrderQueryRepository implements OrderQueryRepository {
       };
     });
   }
+
+  async findAtRiskPage(
+    query: OrderListQuery,
+    evaluationInstant: Date,
+  ): Promise<AtRiskOrderResponse> {
+    const result = await this.dataSource.transaction(async (manager) => {
+      const builder = manager
+        .createQueryBuilder(OrderEntity, 'o')
+        .innerJoin(RestaurantEntity, 'r', 'r.restaurant_id = o.restaurant_id')
+        .select([
+          'o.order_id AS order_id',
+          'o.city AS city',
+          'o.restaurant_id AS restaurant_id',
+          'r.name AS restaurant_name',
+          'r.avg_prep_minutes AS avg_prep_minutes',
+          'o.courier_id AS courier_id',
+          'o.current_status AS current_status',
+          'o.weather AS weather',
+          'o.status_occurred_at AS status_occurred_at',
+          'o.promised_at AS promised_at',
+          'o.total_amount_cents AS total_amount_cents',
+          'o.updated_at AS updated_at',
+        ])
+        .where('o.current_status IN (:...activeStatuses)', {
+          activeStatuses: ACTIVE_ORDER_STATUSES,
+        });
+      applyFilters(builder, query, evaluationInstant);
+      const rows = await builder.getRawMany<ListRow>();
+      const items = rows.map((row): RiskOrderListItem => {
+        const risk = this.risk
+          .assess(
+            {
+              orderId: row.order_id,
+              city: row.city as RiskOrderListItem['city'],
+              currentStatus:
+                row.current_status as RiskOrderListItem['current_status'],
+              statusOccurredAt: new Date(row.status_occurred_at!),
+              acceptedAt: null,
+              promisedAt: new Date(row.promised_at),
+              weather: (row.weather ?? 'CLEAR') as Weather,
+              averagePreparationMinutes: Number(row.avg_prep_minutes),
+            },
+            evaluationInstant,
+          )
+          .toContract();
+        return {
+          order_id: row.order_id,
+          city: row.city as RiskOrderListItem['city'],
+          restaurant: {
+            restaurant_id: row.restaurant_id,
+            name: row.restaurant_name,
+          },
+          courier_id: row.courier_id,
+          current_status:
+            row.current_status as RiskOrderListItem['current_status'],
+          delayed: isOrderDelayed(
+            new Date(row.promised_at),
+            row.current_status,
+            evaluationInstant,
+          ),
+          promised_at: new Date(row.promised_at).toISOString(),
+          total_amount_cents: Number(row.total_amount_cents),
+          updated_at: new Date(row.updated_at).toISOString(),
+          risk,
+        };
+      });
+      items.sort(
+        (a, b) =>
+          riskRank(b.risk.level) - riskRank(a.risk.level) ||
+          b.risk.score - a.risk.score ||
+          a.promised_at.localeCompare(b.promised_at) ||
+          a.order_id.localeCompare(b.order_id),
+      );
+      return { items, total: items.length };
+    });
+    const start = (query.page - 1) * query.limit;
+    return {
+      data: result.items.slice(start, start + query.limit),
+      pagination: {
+        page: query.page,
+        limit: query.limit,
+        total: result.total,
+        totalPages:
+          result.total === 0 ? 0 : Math.ceil(result.total / query.limit),
+      },
+    };
+  }
+}
+
+function riskRank(level: 'LOW' | 'MEDIUM' | 'HIGH'): number {
+  return level === 'HIGH' ? 3 : level === 'MEDIUM' ? 2 : 1;
 }
 
 function applyFilters(

@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { cityCodes, orderStatuses } from '@kuri/contracts';
+import { RiskResponseDto } from './risk.response.dto';
 
 export class RestaurantOperationalViewDto {
   @ApiProperty() restaurant_id!: string;
@@ -28,5 +29,14 @@ export class PaginationDto {
 
 export class OrderListResponseDto {
   @ApiProperty({ type: [OrderListItemDto] }) data!: OrderListItemDto[];
+  @ApiProperty({ type: PaginationDto }) pagination!: PaginationDto;
+}
+
+export class RiskOrderListItemDto extends OrderListItemDto {
+  @ApiProperty({ type: RiskResponseDto }) risk!: RiskResponseDto;
+}
+
+export class AtRiskResponseDto {
+  @ApiProperty({ type: [RiskOrderListItemDto] }) data!: RiskOrderListItemDto[];
   @ApiProperty({ type: PaginationDto }) pagination!: PaginationDto;
 }

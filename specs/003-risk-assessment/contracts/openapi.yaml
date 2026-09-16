@@ -1,0 +1,163 @@
+openapi: 3.0.3
+info:
+  title: Kuri Operations Risk API
+  version: 1.0.0
+  description: Evaluación determinística de riesgo para pedidos activos.
+servers:
+  - url: http://localhost:3001
+tags:
+  - name: Orders
+paths:
+  /api/v1/orders/{orderId}:
+    get:
+      tags: [Orders]
+      summary: Get order detail with risk
+      security: [{ simulatedRole: [] }]
+      parameters:
+        - $ref: '#/components/parameters/RoleHeader'
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Safe order detail enriched with read-time risk.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrderDetailWithRisk' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /api/v1/orders/at-risk:
+    get:
+      tags: [Orders]
+      summary: List active orders ordered by risk
+      security: [{ simulatedRole: [] }]
+      parameters:
+        - $ref: '#/components/parameters/RoleHeader'
+        - $ref: '#/components/parameters/City'
+        - $ref: '#/components/parameters/Status'
+        - $ref: '#/components/parameters/Delayed'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Paginated summarized active orders enriched with risk.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AtRiskResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+components:
+  securitySchemes:
+    simulatedRole:
+      type: apiKey
+      in: header
+      name: X-Kuri-Role
+  parameters:
+    RoleHeader:
+      name: X-Kuri-Role
+      in: header
+      required: true
+      schema: { type: string, enum: [OPS, SYSTEM] }
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 64, pattern: '^[A-Za-z0-9_-]+$' }
+    City:
+      name: city
+      in: query
+      schema: { type: string, enum: [BOG, MEX, LIM] }
+    Status:
+      name: status
+      in: query
+      schema: { type: string, enum: [CREATED, ACCEPTED, COURIER_ASSIGNED, PICKED_UP] }
+    Delayed:
+      name: delayed
+      in: query
+      schema: { type: boolean }
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+  schemas:
+    RiskAssessment:
+      type: object
+      required: [level, score, reasons]
+      properties:
+        level: { type: string, enum: [LOW, MEDIUM, HIGH] }
+        score: { type: integer, minimum: 0 }
+        reasons:
+          type: array
+          items: { type: string }
+    OrderSummaryWithRisk:
+      type: object
+      required: [order_id, city, restaurant, courier_id, current_status, delayed, promised_at, total_amount_cents, updated_at, risk]
+      properties:
+        order_id: { type: string }
+        city: { type: string, enum: [BOG, MEX, LIM] }
+        restaurant:
+          type: object
+          required: [restaurant_id, name]
+          properties:
+            restaurant_id: { type: string }
+            name: { type: string }
+        courier_id: { type: string, nullable: true }
+        current_status: { type: string, enum: [CREATED, ACCEPTED, COURIER_ASSIGNED, PICKED_UP, DELIVERED, CANCELLED] }
+        delayed: { type: boolean }
+        promised_at: { type: string, format: date-time }
+        total_amount_cents: { type: integer, minimum: 0 }
+        updated_at: { type: string, format: date-time }
+        risk: { $ref: '#/components/schemas/RiskAssessment' }
+    Pagination:
+      type: object
+      required: [page, limit, total, totalPages]
+      properties:
+        page: { type: integer, minimum: 1 }
+        limit: { type: integer, minimum: 1, maximum: 100 }
+        total: { type: integer, minimum: 0 }
+        totalPages: { type: integer, minimum: 0 }
+    AtRiskResponse:
+      type: object
+      required: [data, pagination]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/OrderSummaryWithRisk' } }
+        pagination: { $ref: '#/components/schemas/Pagination' }
+    OrderDetailWithRisk:
+      allOf:
+        - $ref: '#/components/schemas/OrderSummaryWithRisk'
+        - type: object
+          description: Existing US2 detail fields and timeline plus risk.
+          properties:
+            user_id: { type: string }
+            current_event_id: { type: string }
+            status_occurred_at: { type: string, format: date-time }
+            weather: { type: string, enum: [CLEAR, RAIN, STORM] }
+            created_at: { type: string, format: date-time }
+            items: { type: array, items: { type: object } }
+            timeline: { type: array, items: { type: object } }
+    Error:
+      type: object
+      required: [code, message, details, trace_id]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        details: { type: object, additionalProperties: true }
+        trace_id: { type: string }
+  responses:
+    BadRequest:
+      description: Invalid input.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Forbidden:
+      description: Missing or unauthorized simulated role.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    NotFound:
+      description: Order not found.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    RateLimited:
+      description: Too many requests.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }

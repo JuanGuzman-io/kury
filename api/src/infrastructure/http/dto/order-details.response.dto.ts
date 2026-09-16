@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { orderStatuses, weatherCodes } from '@kuri/contracts';
 import { OrderListItemDto } from './order-list.response.dto';
+import { RiskResponseDto } from './risk.response.dto';
 
 export class OrderItemResponseDto {
   @ApiProperty() line_number!: number;
@@ -24,6 +25,7 @@ export class TimelineEventResponseDto {
 }
 
 export class OrderDetailsResponseDto extends OrderListItemDto {
+  @ApiProperty({ type: RiskResponseDto }) risk!: RiskResponseDto;
   @ApiProperty() user_id!: string;
   @ApiProperty() current_event_id!: string;
   @ApiProperty({ format: 'date-time' }) status_occurred_at!: string;

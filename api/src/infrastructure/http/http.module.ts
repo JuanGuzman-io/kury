@@ -17,6 +17,8 @@ import { HttpErrorFilter } from './filters/http-error.filter';
 import { SimulatedRoleGuard } from './guards/simulated-role.guard';
 import { ORDER_QUERY_REPOSITORY } from '../../application/orders/ports/order-query-repository.port';
 import { ListOrdersUseCase } from '../../application/orders/use-cases/list-orders.use-case';
+import { ListAtRiskOrdersUseCase } from '../../application/orders/use-cases/list-at-risk-orders.use-case';
+import { RiskAssessmentService } from '../../domain/risk/services/risk-assessment.service';
 
 @Module({
   controllers: [HealthController, OrderEventsController, OrdersController],
@@ -24,6 +26,8 @@ import { ListOrdersUseCase } from '../../application/orders/use-cases/list-order
     IngestOrderEventUseCase,
     GetOrderDetailsUseCase,
     ListOrdersUseCase,
+    ListAtRiskOrdersUseCase,
+    RiskAssessmentService,
     LoadReferenceDataUseCase,
     LoadOrderDatasetUseCase,
     TypeormOrderTransaction,
