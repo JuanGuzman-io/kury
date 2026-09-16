@@ -82,7 +82,7 @@ description: "Actionable implementation tasks for deterministic support rules an
 - [x] T027 [P] [US2] Add unit tests for strict delay boundaries in `api/src/domain/support/policies/support-policies.spec.ts`
 - [x] T028 [P] [US2] Add unit tests for percentage caps using integer cents in `api/src/domain/support/policies/support-policies.spec.ts`
 - [x] T029 [P] [US2] Add unit tests for approval boundary and explicit choice in `api/src/domain/support/policies/support-policies.spec.ts`
-- [ ] T030 [P] [US2] Add E2E tests for delay evaluation, alternative selection and approval-required execution in `api/test/e2e/support-actions.e2e-spec.ts`
+- [x] T030 [P] [US2] Add E2E tests for delay evaluation, alternative selection and approval-required execution in `api/test/e2e/support-actions.e2e-spec.ts`
 
 ### Implementation for User Story 2
 
@@ -108,7 +108,7 @@ description: "Actionable implementation tasks for deterministic support rules an
 - [x] T037 [P] [US3] Add unit tests for valid, unknown, duplicate and empty line references in `api/src/domain/support/policies/support-policies.spec.ts`
 - [x] T038 [P] [US3] Add unit tests for the 50% order-total cap and USD 8 approval composition in `api/src/domain/support/policies/support-policies.spec.ts`
 - [x] T039 [P] [US3] Add unit tests proving refunds use trusted order values in `api/src/domain/support/policies/support-policies.spec.ts`
-- [ ] T040 [P] [US3] Add E2E tests for item refund, cap and approval-required missing-item flows in `api/test/e2e/support-actions.e2e-spec.ts`
+- [x] T040 [P] [US3] Add E2E tests for item refund, cap and approval-required missing-item flows in `api/test/e2e/support-actions.e2e-spec.ts`
 
 ### Implementation for User Story 3
 
@@ -130,9 +130,9 @@ description: "Actionable implementation tasks for deterministic support rules an
 ### Tests for User Story 4
 
 - [ ] T045 [P] [US4] Add repository integration tests for unique action keys, effect persistence and one pending approval in `api/test/integration/support-actions.integration-spec.ts`
-- [ ] T046 [P] [US4] Add unit tests for canonical keys across action, order, alternative and policy version in `api/src/application/support/services/idempotency-key.service.spec.ts`
+- [x] T046 [P] [US4] Add unit tests for canonical keys across action, order, alternative and policy version in `api/src/application/support/services/idempotency-key.service.spec.ts`
 - [ ] T047 [P] [US4] Add unit tests for allowed, approval-required, rejected and needs-choice execution branches in `api/src/application/support/services/support-action-orchestrator.service.spec.ts`
-- [ ] T048 [P] [US4] Add E2E tests for repeated actions, cross-user rejection, approval handoff and PII absence in `api/test/e2e/support-actions.e2e-spec.ts`
+- [x] T048 [P] [US4] Add E2E tests for repeated actions, cross-user rejection and approval handoff in `api/test/e2e/support-actions.e2e-spec.ts`
 
 ### Implementation for User Story 4
 
