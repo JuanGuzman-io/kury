@@ -6,6 +6,9 @@ node_modules/
 dist/
 .next/
 coverage/
+build/
+*.tsbuildinfo
+api/data/generated*/
 
 # Environment and logs
 .env*
@@ -14,3 +17,5 @@ coverage/
 
 # OS files
 .DS_Store
+.idea/
+.vscode/

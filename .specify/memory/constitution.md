@@ -1,8 +1,9 @@
 <!--
 Sync Impact Report
-- Version change: template -> 1.0.0
-- Modified principles: none; five initial principles established.
-- Added sections: Architecture, Data and Security Constraints; Delivery Workflow and Quality Gates.
+- Version change: 1.1.0 -> 1.1.1
+- Modified principles: IV. Evidence-Based Quality, Accessibility, and Usability.
+- Modified sections: Delivery Workflow and Quality Gates.
+- Added sections: none.
 - Removed sections: none.
 - Follow-up TODOs: none.
 -->
@@ -40,14 +41,22 @@ resist prompt-injection attempts, use allow-listed tools and schemas, verify ord
 and create a human approval request instead of executing compensation above USD 8. Secrets MUST
 remain outside version control and `.env.example` MUST contain no real value.
 
-### IV. Evidence-Based Quality Includes Accessible Operations
+### IV. Evidence-Based Quality, Accessibility, and Usability
 
-Every business rule R1-R7, event reducer, risk calculation, money formatter, and privacy guard
-MUST have unit tests. End-to-end tests MUST cover the critical ingest-to-query, support action,
-approval, and operations-panel flows. The web panel MUST meet WCAG 2.2 AA: semantic controls,
-keyboard operation, visible focus, labels, error feedback, contrast, and non-color status cues
-are mandatory. It MUST work from a 320 px viewport without horizontal scrolling and remain
-responsive at larger widths. Quality claims require executable evidence, not manual assertion.
+Unit tests MUST protect critical domain decisions: R1-R7 eligibility and execution boundaries,
+event reduction and terminal-state behavior, monetary calculations, risk classification, and
+privacy or authorization decisions. They MUST exercise meaningful branches, boundaries and failure
+paths. Unit tests are not required for trivial DTOs, mappers, module wiring, simple getters, or
+framework delegation that adds no business decision; those receive the narrowest validation needed
+at their boundary.
+
+End-to-end tests MUST cover the critical user flows: ingest-to-query, support action, approval, and
+operations-panel flows, including their important permission-denied and failure outcomes. The web
+panel MUST meet WCAG 2.2 AA: semantic controls, keyboard operation, visible focus, labels, error
+feedback, contrast, and non-color status cues are mandatory. It MUST work from a 320 px viewport
+without horizontal scrolling and remain responsive at larger widths. Core operations flows MUST be
+evaluated as complete tasks, including their empty, loading, success, error, unavailable, and
+permission-denied states. Quality claims require executable evidence, not manual assertion.
 
 ### V. Local Reproducibility and Traceability Come First
 
@@ -60,6 +69,23 @@ active orders. Conversations MUST retain messages, tool calls, arguments, result
 and approval state. Structured logs MUST record LLM/tool latency and token or cost metadata when
 available. Code and identifiers, as well as commit messages, MUST be English; documentation,
 UI, and assistant responses MUST be Spanish.
+
+### VI. Intentional UX and Microinteractions Support Operational Decisions
+
+Every interface MUST make the current state, priority, available action, and action outcome clear
+without relying on color, hover, or prior product knowledge. High-density operational views MUST
+prioritize the next decision, reveal detail progressively, preserve the user's context while data
+loads or refreshes, and distinguish live, stale, empty, and failed data. Destructive or
+irreversible actions MUST state their consequence before confirmation; recoverable actions MUST
+offer a clear way to correct mistakes.
+
+Microinteractions MUST communicate causality: controls expose enabled, disabled, focus, pending,
+success, and error states; asynchronous work has visible progress or an honest pending state; and
+feedback appears near the action that caused it in clear Spanish. Touch targets MUST be usable at
+small viewports, keyboard focus MUST follow the visible interaction order, and dialogs MUST retain
+focus, support Escape when dismissal is safe, and return focus to their trigger. Each new UI flow
+MUST define and validate these states as part of its acceptance criteria, because operators make
+time-sensitive decisions and users must never infer whether an action succeeded.
 
 ## Architecture, Data and Security Constraints
 
@@ -84,10 +110,17 @@ criteria.
 ## Delivery Workflow and Quality Gates
 
 Work MUST remain small, reviewable, and defensible in a live technical session. Each meaningful
-change MUST have a semantic English commit message with an emoji and MUST be validated with the
-relevant unit, end-to-end, build, lint, and local-environment checks before it is claimed done.
-Failures, skipped checks, pre-existing issues, and unverified runtime behavior MUST be reported
-separately.
+change MUST have a semantic English commit message with an emoji and MUST receive risk-proportionate
+validation before it is claimed done. Critical domain decisions require unit evidence; critical
+user journeys require end-to-end evidence. Do not spend effort on isolated unit tests for trivial
+framework wiring or low-risk modules when contract, integration, or end-to-end evidence covers the
+relevant boundary. Failures, skipped checks, pre-existing issues, and unverified runtime behavior
+MUST be reported separately.
+
+UI changes MUST include a usability review of the primary task at 320 px and desktop widths, with
+keyboard-only navigation and the complete state set required by Principle VI. Visual polish MUST
+serve comprehension: labels, hierarchy, spacing, feedback, and error recovery are acceptance
+criteria, not post-delivery decoration.
 
 The delivery documentation MUST explain local startup, architecture, event idempotency and scale
 limits, the risk approach and production validation plan, LLM rule enforcement, assistant
@@ -112,4 +145,4 @@ governance, and PATCH for clarifications that preserve policy. Compliance review
 changes that bypass domain rules, migrations, ownership checks, privacy controls, test evidence,
 or local reproducibility.
 
-**Version**: 1.0.0 | **Ratified**: 2026-09-15 | **Last Amended**: 2026-09-15
+**Version**: 1.1.1 | **Ratified**: 2026-09-15 | **Last Amended**: 2026-09-15

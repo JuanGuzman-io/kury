@@ -1,0 +1,520 @@
+openapi: 3.1.0
+info:
+  title: Kuri Delivery Order Ingestion API
+  version: 0.1.0
+  description: >-
+    Contrato HTTP de US1 para ingresar eventos idempotentes y consultar la proyeccion y
+    linea de tiempo segura de un pedido. Los montos de entrada usan decimales USD con maximo
+    dos decimales; desde el limite de transporte, todo monto se representa en centavos enteros.
+servers:
+  - url: http://localhost:3001
+    description: Entorno local
+tags:
+  - name: Health
+  - name: Order events
+  - name: Orders
+paths:
+  /health:
+    get:
+      tags: [Health]
+      operationId: getHealth
+      summary: Verifica que la API y PostgreSQL esten disponibles
+      responses:
+        "200":
+          description: Servicio disponible
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+        "503":
+          description: La base de datos no esta disponible
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/order-events:
+    post:
+      tags: [Order events]
+      operationId: ingestOrderEvent
+      summary: Ingresa un hecho inmutable del ciclo de vida de un pedido
+      description: >-
+        Requiere el rol simulado SYSTEM. El cuerpo maximo es 256 KiB. Un event_id repetido
+        con contenido canonico identico devuelve DUPLICATE; reutilizarlo con contenido diferente
+        devuelve EVENT_ID_CONFLICT. occurred_at, no received_at, gobierna la proyeccion temporal.
+      security:
+        - SimulatedRole: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/OrderCreatedEventInput"
+                - $ref: "#/components/schemas/OrderStatusChangedEventInput"
+              discriminator:
+                propertyName: type
+                mapping:
+                  ORDER_CREATED: "#/components/schemas/OrderCreatedEventInput"
+                  ORDER_STATUS_CHANGED: "#/components/schemas/OrderStatusChangedEventInput"
+      responses:
+        "200":
+          description: Reintento idempotente; no se creo otro evento ni cambio la proyeccion
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestionResponse"
+              examples:
+                duplicate:
+                  value:
+                    outcome: DUPLICATE
+                    event_id: evt_001
+                    order_id: ord_001
+                    current_status: CREATED
+                    reason_code: null
+        "201":
+          description: Evento unico almacenado y procesado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Conflicto de identidad, marca temporal o estado terminal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                reusedEventId:
+                  value:
+                    code: EVENT_ID_CONFLICT
+                    message: El event_id ya existe con un contenido diferente.
+                    details: []
+                    trace_id: trc_01K5A0D5AA0000000000000000
+        "413":
+          description: El cuerpo supera 256 KiB
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: El documento es valido pero incumple una invariante de negocio
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /api/v1/orders/{orderId}:
+    get:
+      tags: [Orders]
+      operationId: getOrderById
+      summary: Consulta la proyeccion actual y la linea de tiempo de un pedido
+      description: >-
+        Permite los roles simulados SYSTEM y OPS. La respuesta nunca incluye nombre, telefono,
+        documento ni otra informacion personal del courier o del restaurante.
+      security:
+        - SimulatedRole: []
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/SourceId"
+      responses:
+        "200":
+          description: Pedido encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetailsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: No existe una proyeccion creada para el pedido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+components:
+  securitySchemes:
+    SimulatedRole:
+      type: apiKey
+      in: header
+      name: X-Kuri-Role
+      description: "Rol simulado con autorizacion real. Valores permitidos por operacion: SYSTEM u OPS."
+
+  responses:
+    BadRequest:
+      description: JSON mal formado, campos desconocidos o validacion estructural fallida
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: El rol falta o no esta autorizado
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    TooManyRequests:
+      description: Limite configurable de solicitudes excedido
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            minimum: 1
+          description: Segundos antes de reintentar
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    SourceId:
+      type: string
+      minLength: 1
+      maxLength: 64
+      pattern: "^[A-Za-z0-9_-]+$"
+
+    EventId:
+      allOf:
+        - $ref: "#/components/schemas/SourceId"
+
+    UtcInstant:
+      type: string
+      format: date-time
+      description: Instante ISO 8601 con zona horaria; se normaliza a UTC.
+
+    CityCode:
+      type: string
+      enum: [BOG, MEX, LIM]
+
+    Weather:
+      type: string
+      enum: [CLEAR, RAIN, STORM]
+
+    OrderStatus:
+      type: string
+      enum: [CREATED, ACCEPTED, COURIER_ASSIGNED, PICKED_UP, DELIVERED, CANCELLED]
+
+    EventActor:
+      type: string
+      enum: [USER, RESTAURANT, COURIER, SYSTEM, OPS]
+
+    EventProcessingOutcome:
+      type: string
+      enum: [APPLIED, HISTORICAL, PENDING_SEQUENCE, REJECTED_CONFLICT]
+
+    IngestionOutcome:
+      type: string
+      enum: [APPLIED, HISTORICAL, PENDING, DUPLICATE]
+
+    DecimalMoneyInput:
+      type: number
+      minimum: 0
+      maximum: 90071992547409.91
+      multipleOf: 0.01
+      description: Monto USD de entrada con maximo dos decimales.
+
+    OrderEventBaseInput:
+      type: object
+      required: [event_id, order_id, type, occurred_at, received_at, payload]
+      properties:
+        event_id:
+          $ref: "#/components/schemas/EventId"
+        order_id:
+          $ref: "#/components/schemas/SourceId"
+        type:
+          type: string
+          enum: [ORDER_CREATED, ORDER_STATUS_CHANGED]
+        occurred_at:
+          $ref: "#/components/schemas/UtcInstant"
+        received_at:
+          $ref: "#/components/schemas/UtcInstant"
+        payload:
+          type: object
+
+    OrderCreatedEventInput:
+      unevaluatedProperties: false
+      allOf:
+        - $ref: "#/components/schemas/OrderEventBaseInput"
+        - type: object
+          properties:
+            type:
+              const: ORDER_CREATED
+            payload:
+              $ref: "#/components/schemas/OrderCreatedPayload"
+
+    OrderCreatedPayload:
+      type: object
+      additionalProperties: false
+      required:
+        - user_id
+        - city
+        - restaurant_id
+        - actor
+        - items
+        - total_amount
+        - promised_at
+        - weather
+      properties:
+        user_id:
+          $ref: "#/components/schemas/SourceId"
+        city:
+          $ref: "#/components/schemas/CityCode"
+        restaurant_id:
+          $ref: "#/components/schemas/SourceId"
+        actor:
+          $ref: "#/components/schemas/EventActor"
+        items:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/OrderItemInput"
+        total_amount:
+          $ref: "#/components/schemas/DecimalMoneyInput"
+        promised_at:
+          $ref: "#/components/schemas/UtcInstant"
+        weather:
+          $ref: "#/components/schemas/Weather"
+
+    OrderItemInput:
+      type: object
+      additionalProperties: false
+      required: [sku, name, quantity, unit_price]
+      properties:
+        sku:
+          type: string
+          minLength: 1
+          maxLength: 128
+        name:
+          type: string
+          minLength: 1
+          maxLength: 256
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 1000
+        unit_price:
+          $ref: "#/components/schemas/DecimalMoneyInput"
+
+    OrderStatusChangedEventInput:
+      unevaluatedProperties: false
+      allOf:
+        - $ref: "#/components/schemas/OrderEventBaseInput"
+        - type: object
+          properties:
+            type:
+              const: ORDER_STATUS_CHANGED
+            payload:
+              $ref: "#/components/schemas/OrderStatusChangedPayload"
+
+    OrderStatusChangedPayload:
+      type: object
+      additionalProperties: false
+      required: [status, actor]
+      properties:
+        status:
+          type: string
+          enum: [ACCEPTED, COURIER_ASSIGNED, PICKED_UP, DELIVERED, CANCELLED]
+        actor:
+          $ref: "#/components/schemas/EventActor"
+        courier_id:
+          $ref: "#/components/schemas/SourceId"
+        cancel_reason:
+          type: string
+          minLength: 1
+          maxLength: 128
+      description: >-
+        courier_id es obligatorio y exclusivo para COURIER_ASSIGNED. cancel_reason es obligatorio
+        y exclusivo para CANCELLED. Estas invariantes se validan en codigo.
+
+    IngestionResponse:
+      type: object
+      additionalProperties: false
+      required: [outcome, event_id, order_id, current_status, reason_code]
+      properties:
+        outcome:
+          $ref: "#/components/schemas/IngestionOutcome"
+        event_id:
+          $ref: "#/components/schemas/EventId"
+        order_id:
+          $ref: "#/components/schemas/SourceId"
+        current_status:
+          oneOf:
+            - $ref: "#/components/schemas/OrderStatus"
+            - type: "null"
+        reason_code:
+          oneOf:
+            - type: string
+              maxLength: 64
+            - type: "null"
+
+    OrderDetailsResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - order_id
+        - user_id
+        - city
+        - restaurant_id
+        - courier_id
+        - current_status
+        - current_event_id
+        - status_occurred_at
+        - promised_at
+        - weather
+        - total_amount_cents
+        - items
+        - timeline
+      properties:
+        order_id:
+          $ref: "#/components/schemas/SourceId"
+        user_id:
+          $ref: "#/components/schemas/SourceId"
+        city:
+          $ref: "#/components/schemas/CityCode"
+        restaurant_id:
+          $ref: "#/components/schemas/SourceId"
+        courier_id:
+          oneOf:
+            - $ref: "#/components/schemas/SourceId"
+            - type: "null"
+        current_status:
+          $ref: "#/components/schemas/OrderStatus"
+        current_event_id:
+          $ref: "#/components/schemas/EventId"
+        status_occurred_at:
+          $ref: "#/components/schemas/UtcInstant"
+        promised_at:
+          $ref: "#/components/schemas/UtcInstant"
+        weather:
+          $ref: "#/components/schemas/Weather"
+        total_amount_cents:
+          type: integer
+          format: int64
+          minimum: 0
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItemResponse"
+        timeline:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderTimelineEvent"
+
+    OrderItemResponse:
+      type: object
+      additionalProperties: false
+      required: [line_number, sku, name, quantity, unit_price_cents]
+      properties:
+        line_number:
+          type: integer
+          minimum: 1
+        sku:
+          type: string
+        name:
+          type: string
+        quantity:
+          type: integer
+          minimum: 1
+        unit_price_cents:
+          type: integer
+          format: int64
+          minimum: 0
+
+    OrderTimelineEvent:
+      type: object
+      additionalProperties: false
+      required:
+        - event_id
+        - type
+        - status
+        - actor
+        - occurred_at
+        - received_at
+        - processing_outcome
+        - rejection_code
+      properties:
+        event_id:
+          $ref: "#/components/schemas/EventId"
+        type:
+          type: string
+          enum: [ORDER_CREATED, ORDER_STATUS_CHANGED]
+        status:
+          oneOf:
+            - $ref: "#/components/schemas/OrderStatus"
+            - type: "null"
+        actor:
+          $ref: "#/components/schemas/EventActor"
+        occurred_at:
+          $ref: "#/components/schemas/UtcInstant"
+        received_at:
+          $ref: "#/components/schemas/UtcInstant"
+        courier_id:
+          oneOf:
+            - $ref: "#/components/schemas/SourceId"
+            - type: "null"
+        processing_outcome:
+          $ref: "#/components/schemas/EventProcessingOutcome"
+        rejection_code:
+          oneOf:
+            - type: string
+              maxLength: 64
+            - type: "null"
+
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required: [status, database]
+      properties:
+        status:
+          type: string
+          const: ok
+        database:
+          type: string
+          const: up
+
+    ErrorDetail:
+      type: object
+      additionalProperties: false
+      required: [field, issue]
+      properties:
+        field:
+          type: string
+          maxLength: 128
+        issue:
+          type: string
+          maxLength: 256
+
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [code, message, details, trace_id]
+      properties:
+        code:
+          type: string
+          maxLength: 64
+        message:
+          type: string
+          maxLength: 512
+        details:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/ErrorDetail"
+        trace_id:
+          type: string
+          maxLength: 64

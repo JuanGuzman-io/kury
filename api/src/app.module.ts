@@ -1,10 +1,17 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
+import { ConfigModule } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { HttpModule } from './infrastructure/http/http.module';
+import { throttleOptions } from './infrastructure/http/guards/throttle.config';
+import { typeormOptions } from './infrastructure/database/typeorm/typeorm-options';
 
 @Module({
-  imports: [],
-  controllers: [AppController],
-  providers: [AppService],
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    TypeOrmModule.forRootAsync({ useFactory: typeormOptions }),
+    ThrottlerModule.forRoot(throttleOptions()),
+    HttpModule,
+  ],
 })
 export class AppModule {}

@@ -1,0 +1,37 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DATABASE_NAME:-kuri}
+      POSTGRES_USER: ${DATABASE_USER:-kuri}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-kuri}
+    ports:
+      - "${DATABASE_PORT:-5432}:5432"
+    volumes:
+      - kuri_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-kuri} -d ${DATABASE_NAME:-kuri}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    environment:
+      PORT: 3001
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: ${DATABASE_NAME:-kuri}
+      DATABASE_USER: ${DATABASE_USER:-kuri}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-kuri}
+      DATABASE_URL: postgres://${DATABASE_USER:-kuri}:${DATABASE_PASSWORD:-kuri}@postgres:5432/${DATABASE_NAME:-kuri}
+    ports:
+      - "${PORT:-3001}:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  kuri_postgres_data:

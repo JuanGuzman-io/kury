@@ -1,11 +1,22 @@
 {
   "name": "kury",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": true,
   "packageManager": "pnpm@11.18.0",
   "scripts": {
     "dev:web": "pnpm --filter web dev",
     "dev:api": "pnpm --filter api start:dev",
-    "build": "pnpm --recursive run build"
+    "build": "pnpm --recursive run build",
+    "lint": "pnpm --recursive run lint",
+    "test": "pnpm --filter api test",
+    "test:integration": "pnpm --filter api test:integration",
+    "test:e2e": "pnpm --filter api test:e2e",
+    "test:performance": "pnpm --filter api test:performance",
+    "db:migrate": "pnpm --filter api migration:run",
+    "local:up": "docker compose up --build -d",
+    "local:down": "docker compose down",
+    "data:generate": "pnpm --filter api data:generate",
+    "data:load": "pnpm --filter api data:load",
+    "data:seed": "pnpm data:generate -- --seed 20260915 --orders 1500 && pnpm data:load -- --events api/data/generated/events.jsonl --restaurants api/data/generated/restaurants.json --couriers api/data/generated/couriers.json"
   }
 }
