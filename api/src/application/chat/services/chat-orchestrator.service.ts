@@ -139,10 +139,20 @@ export class ChatOrchestratorService {
             ? 'No puedo compartir información de ese pedido.'
             : 'No encontré ese pedido.';
       } else {
-        const futureAction = this.futureActions.execute(result.toolCall.name);
-        response = futureAction.prepared
-          ? 'Recibí tu solicitud. Todavía no está habilitada para ejecución; no se realizó ningún cambio en tu pedido.'
-          : 'No pude procesar esa solicitud.';
+        const futureAction = await this.futureActions.execute(
+          result.toolCall.name,
+          command.userId,
+          orderId,
+        );
+        response =
+          'prepared' in futureAction && futureAction.prepared
+            ? 'Recibí tu solicitud. Todavía no está habilitada para ejecución; no se realizó ningún cambio en tu pedido.'
+            : 'status' in futureAction &&
+                futureAction.status === 'REQUIRES_APPROVAL'
+              ? 'Tu solicitud requiere aprobación humana antes de ejecutar la compensación.'
+              : 'status' in futureAction && futureAction.status === 'ALLOWED'
+                ? 'La solicitud fue procesada según las reglas de soporte.'
+                : 'No pude procesar esa solicitud.';
       }
     }
     await this.conversations.appendTurn(

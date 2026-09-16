@@ -1,0 +1,104 @@
+openapi: 3.0.3
+info:
+  title: Kuri Support Actions API
+  version: 1.0.0
+  description: Deterministic support policy evaluation and safe action execution.
+servers:
+  - url: http://localhost:3001
+paths:
+  /api/v1/support/actions/evaluate:
+    post:
+      summary: Evaluate a support action
+      security: [{ simulatedRole: [] }]
+      parameters:
+        - $ref: '#/components/parameters/KuriRole'
+        - $ref: '#/components/parameters/KuriUserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ActionEvaluationRequest' }
+      responses:
+        '200':
+          description: Deterministic policy decision.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SupportDecision' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /api/v1/support/actions/execute:
+    post:
+      summary: Execute an allowed action or create its approval handoff
+      security: [{ simulatedRole: [] }]
+      parameters:
+        - $ref: '#/components/parameters/KuriRole'
+        - $ref: '#/components/parameters/KuriUserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ActionExecutionRequest' }
+      responses:
+        '200':
+          description: Stable idempotent action result.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ActionResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+components:
+  securitySchemes:
+    simulatedRole: { type: apiKey, in: header, name: X-Kuri-Role }
+  parameters:
+    KuriRole:
+      name: X-Kuri-Role
+      in: header
+      required: true
+      schema: { type: string, enum: [OPS, SYSTEM] }
+    KuriUserId:
+      name: X-Kuri-User-Id
+      in: header
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 64 }
+  schemas:
+    ActionEvaluationRequest:
+      type: object
+      required: [order_id, action]
+      additionalProperties: false
+      properties:
+        order_id: { type: string, maxLength: 64 }
+        action: { type: string, enum: [CANCEL_ORDER, ISSUE_COUPON, REFUND] }
+        alternative: { type: string, enum: [FULL_REFUND, WAIT_WITH_30_PERCENT_COUPON] }
+        missing_item_lines:
+          type: array
+          uniqueItems: true
+          items: { type: integer, minimum: 1 }
+    ActionExecutionRequest:
+      allOf:
+        - $ref: '#/components/schemas/ActionEvaluationRequest'
+        - type: object
+          properties:
+            idempotency_correlation: { type: string, maxLength: 128 }
+    SupportDecision:
+      type: object
+      required: [decision_id, status, action, reason, policy_version]
+      properties:
+        decision_id: { type: string }
+        status: { type: string, enum: [ALLOWED, REQUIRES_APPROVAL, REJECTED, NEEDS_CHOICE] }
+        action: { type: string }
+        amount_cents: { type: integer, minimum: 0 }
+        reason: { type: string, description: Spanish human-readable explanation. }
+        policy_version: { type: string }
+        approval_request_id: { type: string }
+        alternatives: { type: array, items: { type: object, additionalProperties: true } }
+    ActionResult:
+      allOf:
+        - $ref: '#/components/schemas/SupportDecision'
+        - type: object
+          properties: { effect_id: { type: string } }
+  responses:
+    BadRequest: { description: Invalid action or bounded input. }
+    Forbidden: { description: Missing role, trusted identity or ownership. }
+    RateLimited: { description: Too many requests. }

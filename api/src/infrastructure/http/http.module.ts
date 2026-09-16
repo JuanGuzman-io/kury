@@ -28,6 +28,20 @@ import { CONVERSATION_REPOSITORY } from '../../application/chat/ports/conversati
 import { LLM_PROVIDER } from '../../application/chat/ports/llm-provider.port';
 import { TypeormConversationRepository } from '../database/typeorm/repositories/typeorm-conversation.repository';
 import { DeterministicLlmProvider } from '../ai/deterministic-llm.provider';
+import { SupportActionsController } from './controllers/support-actions.controller';
+import {
+  SUPPORT_ACTION_ORCHESTRATOR,
+  SupportActionOrchestratorService,
+} from '../../application/support/services/support-action-orchestrator.service';
+import { SupportOrderContextService } from '../../application/support/services/support-order-context.service';
+import { CanonicalIdempotencyKeyService } from '../../application/support/services/idempotency-key.service';
+import { IDEMPOTENCY_KEY_SERVICE } from '../../application/support/ports/idempotency-key.port';
+import {
+  ACTION_EFFECT_PORT,
+  SUPPORT_ACTION_REPOSITORY,
+} from '../../application/support/ports/support-action.ports';
+import { TypeormSupportActionRepository } from '../database/typeorm/repositories/typeorm-support-action.repository';
+import { DeterministicActionEffectAdapter } from '../support/deterministic-action-adapters';
 
 @Module({
   controllers: [
@@ -35,6 +49,7 @@ import { DeterministicLlmProvider } from '../ai/deterministic-llm.provider';
     OrderEventsController,
     OrdersController,
     ChatController,
+    SupportActionsController,
   ],
   providers: [
     IngestOrderEventUseCase,
@@ -46,6 +61,27 @@ import { DeterministicLlmProvider } from '../ai/deterministic-llm.provider';
     SendChatMessageUseCase,
     OrderStatusTool,
     FutureActionTools,
+    SupportActionOrchestratorService,
+    {
+      provide: SUPPORT_ACTION_ORCHESTRATOR,
+      useExisting: SupportActionOrchestratorService,
+    },
+    SupportOrderContextService,
+    CanonicalIdempotencyKeyService,
+    TypeormSupportActionRepository,
+    DeterministicActionEffectAdapter,
+    {
+      provide: IDEMPOTENCY_KEY_SERVICE,
+      useExisting: CanonicalIdempotencyKeyService,
+    },
+    {
+      provide: SUPPORT_ACTION_REPOSITORY,
+      useExisting: TypeormSupportActionRepository,
+    },
+    {
+      provide: ACTION_EFFECT_PORT,
+      useExisting: DeterministicActionEffectAdapter,
+    },
     TypeormConversationRepository,
     DeterministicLlmProvider,
     {
