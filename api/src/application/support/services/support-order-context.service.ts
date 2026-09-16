@@ -34,3 +34,9 @@ export class SupportOrderContextService {
     };
   }
 }
+
+export function supportContextFingerprint(
+  context: SupportOrderContext,
+): string {
+  return `${context.currentStatus}:${context.statusOccurredAt.toISOString()}:${context.totalAmountCents}`;
+}

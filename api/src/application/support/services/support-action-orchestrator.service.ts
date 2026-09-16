@@ -18,7 +18,10 @@ import {
   IDEMPOTENCY_KEY_SERVICE,
   type IdempotencyKeyService,
 } from '../ports/idempotency-key.port';
-import { SupportOrderContextService } from './support-order-context.service';
+import {
+  supportContextFingerprint,
+  SupportOrderContextService,
+} from './support-order-context.service';
 import type { SupportActionRecord } from '../../../domain/support/entities/support-action';
 import { IngestOrderEventUseCase } from '../../orders/use-cases/ingest-order-event.use-case';
 import { eventContentHash } from '../../orders/services/event-identity.service';
@@ -98,6 +101,9 @@ export class SupportActionOrchestratorService {
           ...record,
           status: 'PENDING',
           amountCents: decision.amount_cents ?? 0,
+          contextFingerprint: supportContextFingerprint(
+            (await this.context.findOwned(request.order_id, userId))!,
+          ),
         }),
       );
     if (decision.status !== 'ALLOWED') return this.responses.sanitize(decision);

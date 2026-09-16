@@ -1,0 +1,113 @@
+openapi: 3.0.3
+info:
+  title: Kuri Approvals and Traceability API
+  version: 1.0.0
+  description: Human approval workflow and redacted assistant audit traces.
+servers:
+  - url: http://localhost:3001
+paths:
+  /api/v1/approvals:
+    get:
+      summary: List approval requests
+      security: [{ simulatedRole: [] }]
+      parameters:
+        - $ref: '#/components/parameters/KuriRole'
+        - $ref: '#/components/parameters/Status'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200': { description: Paginated, redacted approval requests. }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/approvals/{approvalRequestId}/approve:
+    post:
+      summary: Approve a pending request after context revalidation
+      security: [{ simulatedRole: [] }]
+      parameters:
+        - $ref: '#/components/parameters/KuriRole'
+        - $ref: '#/components/parameters/ApprovalRequestId'
+      responses:
+        '200': { description: Approved action result or obsolete decision. }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { description: Request is no longer pending. }
+  /api/v1/approvals/{approvalRequestId}/reject:
+    post:
+      summary: Reject a pending request without executing an effect
+      security: [{ simulatedRole: [] }]
+      parameters:
+        - $ref: '#/components/parameters/KuriRole'
+        - $ref: '#/components/parameters/ApprovalRequestId'
+      responses:
+        '200': { description: Rejected approval result. }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { description: Request is no longer pending. }
+  /api/v1/traces/conversations/{conversationId}:
+    get:
+      summary: Get a redacted trace by conversation
+      security: [{ simulatedRole: [] }]
+      parameters:
+        - $ref: '#/components/parameters/KuriRole'
+        - $ref: '#/components/parameters/ConversationId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200': { description: Chronological redacted trace. }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/traces/orders/{orderId}:
+    get:
+      summary: Get a redacted trace by order
+      security: [{ simulatedRole: [] }]
+      parameters:
+        - $ref: '#/components/parameters/KuriRole'
+        - $ref: '#/components/parameters/OrderId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200': { description: Chronological redacted trace. }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+components:
+  securitySchemes:
+    simulatedRole: { type: apiKey, in: header, name: X-Kuri-Role }
+  parameters:
+    KuriRole:
+      name: X-Kuri-Role
+      in: header
+      required: true
+      schema: { type: string, enum: [OPS, SYSTEM] }
+    Status:
+      name: status
+      in: query
+      schema: { type: string, enum: [PENDING, APPROVED, REJECTED, OBSOLETE] }
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    ApprovalRequestId:
+      name: approvalRequestId
+      in: path
+      required: true
+      schema: { type: string, maxLength: 64 }
+    ConversationId:
+      name: conversationId
+      in: path
+      required: true
+      schema: { type: string, maxLength: 64 }
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      schema: { type: string, maxLength: 64 }
+  responses:
+    BadRequest: { description: Invalid state, pagination or request. }
+    Forbidden: { description: OPS role is required. }
+    NotFound: { description: Resource not found. }

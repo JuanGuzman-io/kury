@@ -74,6 +74,8 @@ export class TypeormSupportActionRepository implements SupportActionRepository {
         reason: record.decision.reason,
         status: 'PENDING',
         decision: record.decision as unknown as Record<string, unknown>,
+        contextFingerprint: record.contextFingerprint ?? null,
+        conversationId: record.conversationId ?? null,
       } as DeepPartial<SupportApprovalRequestEntity>);
     return {
       ...record.decision,

@@ -8,4 +8,6 @@ export interface SupportActionRecord {
 export interface ApprovalRequestRecord extends SupportActionRecord {
   status: 'PENDING';
   amountCents: number;
+  contextFingerprint?: string;
+  conversationId?: string;
 }

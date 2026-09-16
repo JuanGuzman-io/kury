@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
 import type { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { createTestApp, getHttpServer } from '../support/test-app';
@@ -34,6 +34,23 @@ describe('critical chat flow', () => {
       message: expect.stringContaining('PICKED_UP'),
     });
     expect(JSON.stringify(response.body)).not.toMatch(/phone|document_id/i);
+    const trace = await request(getHttpServer(app))
+      .get(`/api/v1/traces/conversations/${response.body.conversation_id}`)
+      .set('X-Kuri-Role', 'OPS')
+      .expect(200);
+    expect(trace.body.data.map((item: { type: string }) => item.type)).toEqual(
+      expect.arrayContaining(['LLM_CALL', 'TOOL_EXECUTION', 'MESSAGE']),
+    );
+    const orderTrace = await request(getHttpServer(app))
+      .get(`/api/v1/traces/orders/${orderId}?page=1&limit=100`)
+      .set('X-Kuri-Role', 'OPS')
+      .expect(200);
+    expect(orderTrace.body.data).toEqual(expect.any(Array));
+    expect(JSON.stringify(orderTrace.body)).not.toMatch(/phone|document_id/i);
+    await request(getHttpServer(app))
+      .get(`/api/v1/traces/orders/${orderId}`)
+      .set('X-Kuri-Role', 'SYSTEM')
+      .expect(403);
   });
 
   it('does not disclose an order to another user', async () => {

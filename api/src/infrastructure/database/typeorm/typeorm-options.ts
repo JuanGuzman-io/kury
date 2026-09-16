@@ -8,6 +8,8 @@ import { CreateConversations1750000000000 } from './migrations/1750000000000-cre
 import { conversationEntities } from './entities/conversation.entities';
 import { supportActionEntities } from './entities/support-action.entities';
 import { CreateSupportActions1760000000000 } from './migrations/1760000000000-create-support-actions';
+import { approvalAuditEntities } from './entities/approval-audit.entities';
+import { ExtendApprovalAudit1770000000000 } from './migrations/1770000000000-extend-approval-audit';
 
 export function typeormOptions(): DataSourceOptions & TypeOrmModuleOptions {
   const environment = loadEnvironment();
@@ -18,12 +20,14 @@ export function typeormOptions(): DataSourceOptions & TypeOrmModuleOptions {
       ...orderIngestionEntities,
       ...conversationEntities,
       ...supportActionEntities,
+      ...approvalAuditEntities,
     ],
     migrations: [
       InitializeOrderIngestion1730000000000,
       AddOrderQueryIndexes1740000000000,
       CreateConversations1750000000000,
       CreateSupportActions1760000000000,
+      ExtendApprovalAudit1770000000000,
     ],
     synchronize: false,
     logging: process.env.NODE_ENV === 'development' ? ['error'] : false,

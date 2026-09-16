@@ -42,6 +42,12 @@ import {
 } from '../../application/support/ports/support-action.ports';
 import { TypeormSupportActionRepository } from '../database/typeorm/repositories/typeorm-support-action.repository';
 import { DeterministicActionEffectAdapter } from '../support/deterministic-action-adapters';
+import { ApprovalsController } from './controllers/approvals.controller';
+import { ApprovalService } from '../../application/audit/services/approval.service';
+import { AuditTraceService } from '../../application/audit/services/audit-trace.service';
+import { AuditTraceController } from './controllers/audit-trace.controller';
+import { TypeormAuditTraceRepository } from '../database/typeorm/repositories/typeorm-audit-trace.repository';
+import { AUDIT_TRACE_REPOSITORY } from '../../application/audit/ports/audit-trace-repository.port';
 import { SupportActionResponseService } from '../../application/support/services/support-action-response.service';
 
 @Module({
@@ -51,6 +57,8 @@ import { SupportActionResponseService } from '../../application/support/services
     OrdersController,
     ChatController,
     SupportActionsController,
+    ApprovalsController,
+    AuditTraceController,
   ],
   providers: [
     IngestOrderEventUseCase,
@@ -69,6 +77,13 @@ import { SupportActionResponseService } from '../../application/support/services
     },
     SupportOrderContextService,
     SupportActionResponseService,
+    ApprovalService,
+    AuditTraceService,
+    TypeormAuditTraceRepository,
+    {
+      provide: AUDIT_TRACE_REPOSITORY,
+      useExisting: TypeormAuditTraceRepository,
+    },
     CanonicalIdempotencyKeyService,
     TypeormSupportActionRepository,
     DeterministicActionEffectAdapter,
