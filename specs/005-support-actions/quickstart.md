@@ -57,4 +57,5 @@ the absence of PII in responses/logs. Approval resolution and the operations inb
 - Unit: 11 suites, 28 tests passed.
 - Contract/integration: 8 suites, 12 tests passed.
 - E2E: 7 suites, 14 tests passed, including ownership, cancellation projection, compensation approval, missing items and retry idempotency.
+- Performance: 3 suites, 3 tests passed with `RUN_PERFORMANCE=1`; deterministic support policy p95 stayed below 5 ms.
 - ESLint, API build and contracts build passed.

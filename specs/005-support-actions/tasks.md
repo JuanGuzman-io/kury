@@ -151,9 +151,9 @@ description: "Actionable implementation tasks for deterministic support rules an
 
 **Purpose**: Validate the complete feature, documentation and operational contract.
 
-- [ ] T055 [P] Add shared support-action request, decision and result types to `packages/contracts/src/support-actions.ts` and align OpenAPI examples in `specs/005-support-actions/contracts/openapi.yaml`
-- [ ] T056 [P] Add Swagger descriptions for action evaluation, execution, approval statuses and safe failure responses in `api/src/infrastructure/http/swagger.ts`
-- [ ] T057 [P] Add the measured deterministic policy p95 scenario and threshold assertion in `api/test/performance/support-actions.performance-spec.ts`
+- [x] T055 [P] Add shared support-action request, decision and result types to `packages/contracts/src/support-actions.ts` and align OpenAPI examples in `specs/005-support-actions/contracts/openapi.yaml`
+- [x] T056 [P] Add Swagger descriptions for action evaluation, execution, approval statuses and safe failure responses in `api/src/infrastructure/http/controllers/support-actions.controller.ts`
+- [x] T057 [P] Add the measured deterministic policy p95 scenario and threshold assertion in `api/test/performance/support-actions.performance-spec.ts`
 - [x] T058 Run migration, build, lint, unit, contract, integration and E2E suites and record actual evidence in `specs/005-support-actions/quickstart.md`
 - [ ] T059 Validate restart/continuation, event projection, idempotent retries, approval persistence, PII boundaries and OpenAPI alignment from the repository root in `specs/005-support-actions/quickstart.md`
 - [ ] T060 Review the complete diff for domain isolation, integer money, fail-closed behavior, Spanish user messaging, no frontend scope expansion and constitution compliance in `specs/005-support-actions/plan.md`
