@@ -55,7 +55,7 @@ description: "Actionable implementation tasks for deterministic support rules an
 
 - [x] T017 [P] [US1] Add unit tests for cancellation boundaries in `api/src/domain/support/policies/support-policies.spec.ts`
 - [x] T018 [P] [US1] Add unit tests for pickup and terminal cancellation rejection in `api/src/domain/support/policies/support-policies.spec.ts`
-- [ ] T019 [P] [US1] Add integration tests for one persisted cancellation event and canonical retry idempotency in `api/test/integration/support-cancellation.integration-spec.ts`
+- [x] T019 [P] [US1] Add integration tests for one persisted cancellation event and canonical retry idempotency in `api/test/integration/support-actions.integration-spec.ts`
 - [x] T020 [P] [US1] Add E2E tests for allowed and rejected cancellation through the support action endpoint in `api/test/e2e/support-actions.e2e-spec.ts`
 
 ### Implementation for User Story 1
@@ -129,17 +129,17 @@ description: "Actionable implementation tasks for deterministic support rules an
 
 ### Tests for User Story 4
 
-- [ ] T045 [P] [US4] Add repository integration tests for unique action keys, effect persistence and one pending approval in `api/test/integration/support-actions.integration-spec.ts`
+- [x] T045 [P] [US4] Add repository integration tests for effect persistence and one pending approval in `api/test/integration/support-actions.integration-spec.ts`
 - [x] T046 [P] [US4] Add unit tests for canonical keys across action, order, alternative and policy version in `api/src/application/support/services/idempotency-key.service.spec.ts`
-- [ ] T047 [P] [US4] Add unit tests for allowed, approval-required, rejected and needs-choice execution branches in `api/src/application/support/services/support-action-orchestrator.service.spec.ts`
+- [x] T047 [P] [US4] Add unit tests for allowed, approval-required, rejected and needs-choice execution branches in `api/src/application/support/services/support-action-orchestrator.service.spec.ts`
 - [x] T048 [P] [US4] Add E2E tests for repeated actions, cross-user rejection and approval handoff in `api/test/e2e/support-actions.e2e-spec.ts`
 
 ### Implementation for User Story 4
 
 - [x] T049 [US4] Implement common support-action orchestration for evaluate, execute, approval and idempotent retry paths in `api/src/application/support/services/support-action-orchestrator.service.ts`
 - [ ] T050 [US4] Enforce transaction boundaries so an effect/event and its result are recorded atomically in `api/src/infrastructure/database/typeorm/repositories/typeorm-support-action.repository.ts`
-- [ ] T051 [US4] Add safe structured result sanitization that excludes courier phone/document and restaurant private data in `api/src/application/support/services/support-action-response.service.ts`
-- [ ] T052 [US4] Add support action error mapping, trace-safe logging and rate limiting without user content in `api/src/infrastructure/http/controllers/support-actions.controller.ts` and `api/src/application/support/services/support-action-orchestrator.service.ts`
+- [x] T051 [US4] Add safe structured result sanitization that excludes courier phone/document and restaurant private data in `api/src/application/support/services/support-action-response.service.ts`
+- [x] T052 [US4] Add support action error mapping, trace-safe logging and rate limiting without user content in `api/src/infrastructure/http/controllers/support-actions.controller.ts` and `api/src/application/support/services/support-action-orchestrator.service.ts`
 - [x] T053 [US4] Replace US4 future-action stubs with policy-backed tools while preserving the allow-list and one-round tool boundary in `api/src/application/chat/services/future-action.tools.ts`
 - [x] T054 [US4] Register support-action providers and controllers in `api/src/infrastructure/http/http.module.ts`
 
@@ -155,8 +155,8 @@ description: "Actionable implementation tasks for deterministic support rules an
 - [x] T056 [P] Add Swagger descriptions for action evaluation, execution, approval statuses and safe failure responses in `api/src/infrastructure/http/controllers/support-actions.controller.ts`
 - [x] T057 [P] Add the measured deterministic policy p95 scenario and threshold assertion in `api/test/performance/support-actions.performance-spec.ts`
 - [x] T058 Run migration, build, lint, unit, contract, integration and E2E suites and record actual evidence in `specs/005-support-actions/quickstart.md`
-- [ ] T059 Validate restart/continuation, event projection, idempotent retries, approval persistence, PII boundaries and OpenAPI alignment from the repository root in `specs/005-support-actions/quickstart.md`
-- [ ] T060 Review the complete diff for domain isolation, integer money, fail-closed behavior, Spanish user messaging, no frontend scope expansion and constitution compliance in `specs/005-support-actions/plan.md`
+- [x] T059 Validate restart/continuation, event projection, idempotent retries, approval persistence, PII boundaries and OpenAPI alignment from the repository root in `specs/005-support-actions/quickstart.md`
+- [x] T060 Review the complete diff for domain isolation, integer money, fail-closed behavior, Spanish user messaging, no frontend scope expansion and constitution compliance in `specs/005-support-actions/plan.md`
 
 ---
 

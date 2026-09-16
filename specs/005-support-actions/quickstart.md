@@ -54,8 +54,12 @@ the absence of PII in responses/logs. Approval resolution and the operations inb
 ## Validation evidence (2026-09-16)
 
 - PostgreSQL migration `CreateSupportActions1760000000000` applied locally.
-- Unit: 11 suites, 28 tests passed.
-- Contract/integration: 8 suites, 12 tests passed.
+- Unit: 12 suites, 31 tests passed.
+- Contract/integration: 9 suites, 15 tests passed.
 - E2E: 7 suites, 14 tests passed, including ownership, cancellation projection, compensation approval, missing items and retry idempotency.
 - Performance: 3 suites, 3 tests passed with `RUN_PERFORMANCE=1`; deterministic support policy p95 stayed below 5 ms.
 - ESLint, API build and contracts build passed.
+
+The remaining transaction-hardening item is intentionally tracked separately: the current
+ingestion and support-effect operations each have their own database transaction. A shared
+transaction port is required before claiming atomic event-plus-effect commits.

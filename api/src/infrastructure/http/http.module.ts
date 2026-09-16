@@ -42,6 +42,7 @@ import {
 } from '../../application/support/ports/support-action.ports';
 import { TypeormSupportActionRepository } from '../database/typeorm/repositories/typeorm-support-action.repository';
 import { DeterministicActionEffectAdapter } from '../support/deterministic-action-adapters';
+import { SupportActionResponseService } from '../../application/support/services/support-action-response.service';
 
 @Module({
   controllers: [
@@ -67,6 +68,7 @@ import { DeterministicActionEffectAdapter } from '../support/deterministic-actio
       useExisting: SupportActionOrchestratorService,
     },
     SupportOrderContextService,
+    SupportActionResponseService,
     CanonicalIdempotencyKeyService,
     TypeormSupportActionRepository,
     DeterministicActionEffectAdapter,

@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import type {
   SupportActionRequest,
   SupportActionResult,
@@ -25,6 +25,7 @@ import { eventContentHash } from '../../orders/services/event-identity.service';
 import type { OrderEventInput } from '@kuri/contracts';
 import type { OrderEvent } from '../../../domain/orders/entities/order-event';
 import { createHash } from 'node:crypto';
+import { SupportActionResponseService } from './support-action-response.service';
 
 export const SUPPORT_ACTION_ORCHESTRATOR = Symbol(
   'SUPPORT_ACTION_ORCHESTRATOR',
@@ -32,6 +33,8 @@ export const SUPPORT_ACTION_ORCHESTRATOR = Symbol(
 
 @Injectable()
 export class SupportActionOrchestratorService {
+  private readonly logger = new Logger(SupportActionOrchestratorService.name);
+
   constructor(
     private readonly context: SupportOrderContextService,
     @Inject(SUPPORT_ACTION_REPOSITORY)
@@ -40,6 +43,7 @@ export class SupportActionOrchestratorService {
     private readonly keys: IdempotencyKeyService,
     @Inject(ACTION_EFFECT_PORT) private readonly effects: ActionEffectPort,
     private readonly ingest: IngestOrderEventUseCase,
+    private readonly responses: SupportActionResponseService,
   ) {}
 
   async evaluate(
@@ -48,18 +52,22 @@ export class SupportActionOrchestratorService {
   ): Promise<SupportDecisionContract> {
     const order = await this.context.findOwned(request.order_id, userId);
     if (!order)
-      return {
+      return this.responses.sanitize({
         decision_id: 'decision_rejected',
         status: 'REJECTED',
         action: request.action,
         reason: 'No puedo procesar una acción para ese pedido.',
         policy_version: SUPPORT_POLICY_VERSION,
-      };
+      });
     if (request.action === 'CANCEL_ORDER')
-      return evaluateCancellation(order, new Date());
+      return this.responses.sanitize(evaluateCancellation(order, new Date()));
     if (request.action === 'ISSUE_COUPON')
-      return evaluateDelayCompensation(order, new Date(), request.alternative);
-    return evaluateMissingItems(order, request.missing_item_lines ?? []);
+      return this.responses.sanitize(
+        evaluateDelayCompensation(order, new Date(), request.alternative),
+      );
+    return this.responses.sanitize(
+      evaluateMissingItems(order, request.missing_item_lines ?? []),
+    );
   }
 
   async execute(
@@ -67,6 +75,9 @@ export class SupportActionOrchestratorService {
     request: SupportActionRequest,
   ): Promise<SupportActionResult> {
     const decision = await this.evaluate(userId, request);
+    this.logger.log(
+      `Support action evaluated: action=${request.action} order=${request.order_id} status=${decision.status}`,
+    );
     const key = this.keys.create(
       request.action,
       request.order_id,
@@ -74,7 +85,7 @@ export class SupportActionOrchestratorService {
       decision.policy_version,
     );
     const existing = await this.repository.findByIdempotencyKey(key);
-    if (existing) return existing.decision;
+    if (existing) return this.responses.sanitize(existing.decision);
     const record: SupportActionRecord = {
       idempotencyKey: key,
       orderId: request.order_id,
@@ -82,12 +93,14 @@ export class SupportActionOrchestratorService {
       decision,
     };
     if (decision.status === 'REQUIRES_APPROVAL')
-      return this.repository.saveApproval({
-        ...record,
-        status: 'PENDING',
-        amountCents: decision.amount_cents ?? 0,
-      });
-    if (decision.status !== 'ALLOWED') return decision;
+      return this.responses.sanitize(
+        await this.repository.saveApproval({
+          ...record,
+          status: 'PENDING',
+          amountCents: decision.amount_cents ?? 0,
+        }),
+      );
+    if (decision.status !== 'ALLOWED') return this.responses.sanitize(decision);
     if (decision.action === 'CANCEL_ORDER') {
       const eventId = `evt_cancel_${createHash('sha256').update(key).digest('hex').slice(0, 32)}`;
       const occurredAt = new Date();
@@ -127,9 +140,9 @@ export class SupportActionOrchestratorService {
       request.order_id,
       decision.amount_cents,
     );
-    return {
+    return this.responses.sanitize({
       ...(await this.repository.saveEffect(record)),
       effect_id: effect.effectId,
-    };
+    });
   }
 }
