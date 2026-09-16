@@ -9,6 +9,11 @@ import { setupSwagger } from './infrastructure/http/swagger';
 async function bootstrap() {
   const environment = loadEnvironment();
   const app = await NestFactory.create(AppModule, { bodyParser: false });
+  app.enableCors({
+    origin: ['http://localhost:3000'],
+    methods: ['GET', 'POST', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Accept', 'X-Kuri-Role'],
+  });
   app.use(json({ limit: '256kb', strict: true }));
   app.useGlobalPipes(
     new ValidationPipe({
