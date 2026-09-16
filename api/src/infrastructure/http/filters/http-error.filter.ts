@@ -16,7 +16,8 @@ export class HttpErrorFilter implements ExceptionFilter {
     const response = host
       .switchToHttp()
       .getResponse<Response<unknown, HttpLocals>>();
-    const traceId = response.locals.traceId ?? 'unknown';
+    const traceHeader = response.getHeader('X-Trace-Id');
+    const traceId = typeof traceHeader === 'string' ? traceHeader : 'unknown';
     if (exception instanceof OrderDomainError) {
       response.status(exception.statusCode).json({
         code: exception.code,
@@ -27,16 +28,17 @@ export class HttpErrorFilter implements ExceptionFilter {
       return;
     }
     if (exception instanceof HttpException) {
-      const status = exception.getStatus();
+      const status: number = exception.getStatus();
+      const exceptionResponse: unknown = exception.getResponse();
       const message =
-        typeof exception.getResponse() === 'string'
-          ? exception.getResponse()
+        typeof exceptionResponse === 'string'
+          ? exceptionResponse
           : 'Request failed.';
       response.status(status).json({
         code:
-          status === Number(HttpStatus.FORBIDDEN)
+          status === 403
             ? 'FORBIDDEN'
-            : status === Number(HttpStatus.TOO_MANY_REQUESTS)
+            : status === 429
               ? 'RATE_LIMITED'
               : 'BAD_REQUEST',
         message,

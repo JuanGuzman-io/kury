@@ -4,6 +4,7 @@ import { json } from 'express';
 import { AppModule } from './app.module';
 import { loadEnvironment } from './infrastructure/config/environment';
 import { traceIdMiddleware } from './infrastructure/http/filters/trace-id.middleware';
+import { setupSwagger } from './infrastructure/http/swagger';
 
 async function bootstrap() {
   const environment = loadEnvironment();
@@ -17,6 +18,7 @@ async function bootstrap() {
     }),
   );
   app.use(traceIdMiddleware);
+  setupSwagger(app);
   await app.listen(environment.port);
 }
 void bootstrap();

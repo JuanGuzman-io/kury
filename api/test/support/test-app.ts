@@ -1,8 +1,10 @@
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import * as request from 'supertest';
 import { Test } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
+import { traceIdMiddleware } from '../../src/infrastructure/http/filters/trace-id.middleware';
+import { setupSwagger } from '../../src/infrastructure/http/swagger';
 import {
   CourierEntity,
   RestaurantEntity,
@@ -22,6 +24,15 @@ export async function createTestApp(): Promise<{
     imports: [AppModule],
   }).compile();
   const app = module.createNestApplication();
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
+  app.use(traceIdMiddleware);
+  setupSwagger(app);
   await app.init();
   return { app, dataSource: app.get(DataSource) };
 }

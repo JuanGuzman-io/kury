@@ -1,0 +1,195 @@
+openapi: 3.0.3
+info:
+  title: Kuri Operations Order Query API
+  version: 1.0.0
+  description: Read-only operational queries for projected orders.
+servers:
+  - url: http://localhost:3001
+tags:
+  - name: Orders
+paths:
+  /api/v1/orders:
+    get:
+      tags: [Orders]
+      summary: List operational orders
+      security:
+        - simulatedRole: []
+      parameters:
+        - $ref: '#/components/parameters/RoleHeader'
+        - $ref: '#/components/parameters/City'
+        - $ref: '#/components/parameters/Status'
+        - $ref: '#/components/parameters/Delayed'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A stable filtered page of summarized orders.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderListResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /api/v1/orders/{orderId}:
+    get:
+      tags: [Orders]
+      summary: Get complete operational order detail
+      security:
+        - simulatedRole: []
+      parameters:
+        - $ref: '#/components/parameters/RoleHeader'
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Complete safe order detail with timeline.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDetail'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+components:
+  securitySchemes:
+    simulatedRole:
+      type: apiKey
+      in: header
+      name: X-Kuri-Role
+      description: Simulated role; accepted read roles are OPS and SYSTEM.
+  parameters:
+    RoleHeader:
+      name: X-Kuri-Role
+      in: header
+      required: true
+      schema: { type: string, enum: [OPS, SYSTEM] }
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 64
+        pattern: '^[A-Za-z0-9_-]+$'
+    City:
+      name: city
+      in: query
+      required: false
+      schema: { type: string, enum: [BOG, MEX, LIM] }
+    Status:
+      name: status
+      in: query
+      required: false
+      schema: { $ref: '#/components/schemas/OrderStatus' }
+    Delayed:
+      name: delayed
+      in: query
+      required: false
+      schema:
+        type: boolean
+        description: true=retrasados, false=no retrasados; omitido=no filtrar.
+    Page:
+      name: page
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, default: 1 }
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+  schemas:
+    OrderStatus:
+      type: string
+      enum: [CREATED, ACCEPTED, COURIER_ASSIGNED, PICKED_UP, DELIVERED, CANCELLED]
+    RestaurantOperationalView:
+      type: object
+      required: [restaurant_id, name]
+      properties:
+        restaurant_id: { type: string }
+        name: { type: string }
+    OrderListItem:
+      type: object
+      required: [order_id, city, restaurant, courier_id, current_status, delayed, promised_at, total_amount_cents, updated_at]
+      properties:
+        order_id: { type: string }
+        city: { type: string, enum: [BOG, MEX, LIM] }
+        restaurant: { $ref: '#/components/schemas/RestaurantOperationalView' }
+        courier_id: { type: string, nullable: true }
+        current_status: { $ref: '#/components/schemas/OrderStatus' }
+        delayed: { type: boolean }
+        promised_at: { type: string, format: date-time }
+        total_amount_cents: { type: integer, minimum: 0, format: int64 }
+        updated_at: { type: string, format: date-time }
+    OrderListResponse:
+      type: object
+      required: [data, pagination]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/OrderListItem' } }
+        pagination: { $ref: '#/components/schemas/Pagination' }
+    Pagination:
+      type: object
+      required: [page, limit, total, totalPages]
+      properties:
+        page: { type: integer, minimum: 1 }
+        limit: { type: integer, minimum: 1, maximum: 100 }
+        total: { type: integer, minimum: 0 }
+        totalPages: { type: integer, minimum: 0 }
+    OrderItem:
+      type: object
+      required: [line_number, sku, name, quantity, unit_price_cents]
+      properties:
+        line_number: { type: integer, minimum: 1 }
+        sku: { type: string }
+        name: { type: string }
+        quantity: { type: integer, minimum: 1 }
+        unit_price_cents: { type: integer, minimum: 0, format: int64 }
+    TimelineEvent:
+      type: object
+      required: [event_id, type, actor, occurred_at, received_at, processing_outcome]
+      properties:
+        event_id: { type: string }
+        type: { type: string, enum: [ORDER_CREATED, ORDER_STATUS_CHANGED] }
+        status: { allOf: [{ $ref: '#/components/schemas/OrderStatus' }], nullable: true }
+        actor: { type: string }
+        occurred_at: { type: string, format: date-time }
+        received_at: { type: string, format: date-time }
+        courier_id: { type: string, nullable: true }
+        processing_outcome: { type: string }
+        rejection_code: { type: string, nullable: true }
+    OrderDetail:
+      allOf:
+        - $ref: '#/components/schemas/OrderListItem'
+        - type: object
+          required: [user_id, current_event_id, status_occurred_at, weather, items, timeline]
+          properties:
+            user_id: { type: string }
+            current_event_id: { type: string }
+            status_occurred_at: { type: string, format: date-time }
+            weather: { type: string, enum: [CLEAR, RAIN, STORM] }
+            created_at: { type: string, format: date-time }
+            items: { type: array, items: { $ref: '#/components/schemas/OrderItem' } }
+            timeline: { type: array, items: { $ref: '#/components/schemas/TimelineEvent' } }
+    Error:
+      type: object
+      required: [code, message, details, trace_id]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        details: { type: array, items: {} }
+        trace_id: { type: string }
+  responses:
+    BadRequest:
+      description: Invalid path or query parameters.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Forbidden:
+      description: Missing or unauthorized simulated role.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    NotFound:
+      description: Order does not exist.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    RateLimited:
+      description: Too many read requests.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
