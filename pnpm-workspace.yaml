@@ -1,0 +1,6 @@
+packages:
+  - api
+  - web
+allowBuilds:
+  '@swc/core': true
+  unrs-resolver: true

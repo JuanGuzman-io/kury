@@ -1,0 +1,11 @@
+{
+  "name": "kury",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@11.18.0",
+  "scripts": {
+    "dev:web": "pnpm --filter web dev",
+    "dev:api": "pnpm --filter api start:dev",
+    "build": "pnpm --recursive run build"
+  }
+}
