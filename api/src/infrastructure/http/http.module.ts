@@ -19,15 +19,40 @@ import { ORDER_QUERY_REPOSITORY } from '../../application/orders/ports/order-que
 import { ListOrdersUseCase } from '../../application/orders/use-cases/list-orders.use-case';
 import { ListAtRiskOrdersUseCase } from '../../application/orders/use-cases/list-at-risk-orders.use-case';
 import { RiskAssessmentService } from '../../domain/risk/services/risk-assessment.service';
+import { ChatController } from './controllers/chat.controller';
+import { ChatOrchestratorService } from '../../application/chat/services/chat-orchestrator.service';
+import { OrderStatusTool } from '../../application/chat/services/order-status.tool';
+import { FutureActionTools } from '../../application/chat/services/future-action.tools';
+import { SendChatMessageUseCase } from '../../application/chat/use-cases/send-chat-message.use-case';
+import { CONVERSATION_REPOSITORY } from '../../application/chat/ports/conversation-repository.port';
+import { LLM_PROVIDER } from '../../application/chat/ports/llm-provider.port';
+import { TypeormConversationRepository } from '../database/typeorm/repositories/typeorm-conversation.repository';
+import { DeterministicLlmProvider } from '../ai/deterministic-llm.provider';
 
 @Module({
-  controllers: [HealthController, OrderEventsController, OrdersController],
+  controllers: [
+    HealthController,
+    OrderEventsController,
+    OrdersController,
+    ChatController,
+  ],
   providers: [
     IngestOrderEventUseCase,
     GetOrderDetailsUseCase,
     ListOrdersUseCase,
     ListAtRiskOrdersUseCase,
     RiskAssessmentService,
+    ChatOrchestratorService,
+    SendChatMessageUseCase,
+    OrderStatusTool,
+    FutureActionTools,
+    TypeormConversationRepository,
+    DeterministicLlmProvider,
+    {
+      provide: CONVERSATION_REPOSITORY,
+      useExisting: TypeormConversationRepository,
+    },
+    { provide: LLM_PROVIDER, useExisting: DeterministicLlmProvider },
     LoadReferenceDataUseCase,
     LoadOrderDatasetUseCase,
     TypeormOrderTransaction,

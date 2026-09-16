@@ -40,7 +40,9 @@ export class HttpErrorFilter implements ExceptionFilter {
             ? 'FORBIDDEN'
             : status === 429
               ? 'RATE_LIMITED'
-              : 'BAD_REQUEST',
+              : status === 400
+                ? 'VALIDATION_ERROR'
+                : 'BAD_REQUEST',
         message,
         details: [],
         trace_id: traceId,
