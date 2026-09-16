@@ -1,0 +1,7 @@
+import Link from "next/link";
+import type { RiskOrderListItem } from "@kuri/contracts";
+import { cityLabel, dateTime, statusLabel } from "@/lib/formatters/operations-formatters";
+import { RiskSummary } from "./risk-summary";
+export function OrderList({ orders }: { orders: RiskOrderListItem[] }) {
+  return <div className="overflow-hidden border-y border-[var(--paper-200)]"><div className="hidden grid-cols-[1.3fr_.7fr_1fr_1.2fr_1fr] gap-4 border-b border-[var(--paper-200)] px-4 py-3 text-[10px] font-bold uppercase tracking-[.16em] text-[var(--slate-500)] md:grid"><span>Pedido</span><span>Ciudad</span><span>Estado</span><span>Promesa</span><span>Prioridad</span></div>{orders.map((order, i) => <Link href={`/orders/${order.order_id}`} key={order.order_id} className="grid gap-3 border-b border-[var(--paper-200)] px-4 py-4 transition hover:bg-white md:grid-cols-[1.3fr_.7fr_1fr_1.2fr_1fr] md:items-center md:gap-4" style={{ animationDelay: `${i * 35}ms` }}><div><p className="font-mono text-sm font-bold">{order.order_id}</p><p className="mt-1 text-xs text-[var(--slate-500)]">{order.restaurant.name}</p></div><p className="text-sm">{cityLabel(order.city)}</p><p><span className="text-sm font-semibold">{statusLabel(order.current_status)}</span>{order.delayed && <span className="ml-2 text-[11px] font-bold uppercase text-[var(--red-500)]">Retrasado</span>}</p><p className="text-sm tabular-nums">{dateTime(order.promised_at)}</p><RiskSummary {...order.risk} /></Link>)}</div>;
+}
