@@ -70,6 +70,9 @@ export async function generateDataset(
     const id = `ord_${seed}_${String(index + 1).padStart(5, '0')}`;
     const created = new Date(base + index * 60_000);
     const price = 800 + random.integer(2200);
+    const cancelled = index % 25 === 0;
+    const delayed = !cancelled && index % 25 < 4;
+    const active = !cancelled && (delayed || index % 10 === 0);
     const createdEvent: OrderEventInput = {
       event_id: `evt_${id}_created`,
       order_id: id,
@@ -91,14 +94,16 @@ export async function generateDataset(
         ],
         total_amount: price / 100,
         promised_at: new Date(
-          created.getTime() + (random.next() < 0.12 ? 80 : 45) * 60_000,
+          created.getTime() + (delayed ? 30 : active ? 48 * 60 : 45) * 60_000,
         ).toISOString(),
         weather: weather[index % weather.length],
+        dropoff: {
+          lat: restaurant.latitude + 0.01,
+          lng: restaurant.longitude - 0.01,
+        },
       },
     };
     events.push(createdEvent);
-    const cancelled = random.next() < 0.04;
-    const active = !cancelled && random.next() < 0.2;
     const statuses: Exclude<OrderStatus, 'CREATED'>[] = cancelled
       ? ['ACCEPTED', 'CANCELLED']
       : active
@@ -140,7 +145,14 @@ export async function generateDataset(
   await Promise.all([
     fs.writeFile(
       join(outputDirectory, 'restaurants.json'),
-      `${JSON.stringify(restaurants, null, 2)}\n`,
+      `${JSON.stringify(
+        restaurants.map(({ latitude, longitude, ...restaurant }) => ({
+          ...restaurant,
+          location: { lat: latitude, lng: longitude },
+        })),
+        null,
+        2,
+      )}\n`,
     ),
     fs.writeFile(
       join(outputDirectory, 'couriers.json'),
@@ -148,7 +160,7 @@ export async function generateDataset(
     ),
     fs.writeFile(
       join(outputDirectory, 'events.jsonl'),
-      `${events.map((event) => JSON.stringify(event)).join('\n')}\n`,
+      `${events.map((event) => JSON.stringify(toAnnexEvent(event))).join('\n')}\n`,
     ),
   ]);
   return {
@@ -156,5 +168,37 @@ export async function generateDataset(
     orders: orderCount,
     events: events.length,
     output: outputDirectory,
+  };
+}
+
+function toAnnexEvent(event: OrderEventInput): Record<string, unknown> {
+  if (event.type === 'ORDER_CREATED') {
+    const { actor, items, ...payload } = event.payload;
+    void actor;
+    return {
+      event_id: event.event_id,
+      order_id: event.order_id,
+      type: event.type,
+      occurred_at: event.occurred_at,
+      received_at: event.received_at,
+      payload: {
+        ...payload,
+        items: items.map(({ quantity, ...item }) => ({
+          ...item,
+          qty: quantity,
+        })),
+      },
+    };
+  }
+
+  const { status, ...payload } = event.payload;
+  return {
+    event_id: event.event_id,
+    order_id: event.order_id,
+    type: event.type,
+    status,
+    occurred_at: event.occurred_at,
+    received_at: event.received_at,
+    payload,
   };
 }

@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   isAllowedTool,
   validateToolArguments,
@@ -32,6 +32,8 @@ export interface ChatResult {
 
 @Injectable()
 export class ChatOrchestratorService {
+  private readonly logger = new Logger(ChatOrchestratorService.name);
+
   constructor(
     @Inject(CONVERSATION_REPOSITORY)
     private readonly conversations: ConversationRepository,
@@ -116,6 +118,16 @@ export class ChatOrchestratorService {
             duration_ms: performance.now() - llmStarted,
           },
         });
+        this.logStructured('llm_call', {
+          conversation_id: conversation.conversationId,
+          order_id: command.orderId ?? null,
+          provider: 'deterministic',
+          model: 'in-memory',
+          status: 'INVALID_RESPONSE',
+          duration_ms: performance.now() - llmStarted,
+          token_usage: null,
+          estimated_cost: null,
+        });
         return {
           conversation_id: conversation.conversationId,
           message:
@@ -139,6 +151,16 @@ export class ChatOrchestratorService {
           duration_ms: performance.now() - llmStarted,
         },
       });
+      this.logStructured('llm_call', {
+        conversation_id: conversation.conversationId,
+        order_id: command.orderId ?? null,
+        provider: 'deterministic',
+        model: 'in-memory',
+        status: 'ERROR',
+        duration_ms: performance.now() - llmStarted,
+        token_usage: null,
+        estimated_cost: null,
+      });
       return {
         conversation_id: conversation.conversationId,
         message:
@@ -160,6 +182,17 @@ export class ChatOrchestratorService {
         duration_ms: performance.now() - llmStarted,
         intent: result.intent,
       },
+    });
+    this.logStructured('llm_call', {
+      conversation_id: conversation.conversationId,
+      order_id: command.orderId ?? null,
+      provider: 'deterministic',
+      model: 'in-memory',
+      status: 'SUCCESS',
+      intent: result.intent,
+      duration_ms: performance.now() - llmStarted,
+      token_usage: null,
+      estimated_cost: null,
     });
     let response: string;
     let decisionStatus = 'FINAL_RESPONSE';
@@ -203,6 +236,14 @@ export class ChatOrchestratorService {
             duration_ms: performance.now() - toolStarted,
           },
         });
+        this.logStructured('tool_execution', {
+          conversation_id: conversation.conversationId,
+          order_id: orderId,
+          tool_name: result.toolCall.name,
+          status: tool.ok ? 'SUCCESS' : 'ERROR',
+          decision: decisionStatus,
+          duration_ms: performance.now() - toolStarted,
+        });
         response = tool.ok
           ? `Tu pedido está en estado ${tool.order.current_status}. La hora prometida es ${tool.order.promised_at}.`
           : tool.code === 'ORDER_NOT_OWNED_BY_USER'
@@ -227,6 +268,14 @@ export class ChatOrchestratorService {
             status: 'SUCCESS',
             duration_ms: performance.now() - toolStarted,
           },
+        });
+        this.logStructured('tool_execution', {
+          conversation_id: conversation.conversationId,
+          order_id: orderId,
+          tool_name: result.toolCall.name,
+          status: 'SUCCESS',
+          decision: decisionStatus,
+          duration_ms: performance.now() - toolStarted,
         });
         response =
           'prepared' in futureAction && futureAction.prepared
@@ -266,6 +315,10 @@ export class ChatOrchestratorService {
       message: response,
       intent: result.intent,
     };
+  }
+
+  private logStructured(event: string, payload: Record<string, unknown>): void {
+    this.logger.log(JSON.stringify({ event, ...payload }));
   }
 }
 

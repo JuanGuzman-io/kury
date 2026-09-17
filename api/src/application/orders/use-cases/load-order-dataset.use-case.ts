@@ -124,12 +124,16 @@ async function readJson<T>(path: string): Promise<T> {
 function toRestaurantReference(
   input: Record<string, unknown>,
 ): RestaurantReference {
+  const location =
+    input.location && typeof input.location === 'object'
+      ? (input.location as Record<string, unknown>)
+      : undefined;
   return {
     restaurantId: String(input.restaurant_id),
     name: String(input.name),
     city: String(input.city),
-    latitude: Number(input.latitude),
-    longitude: Number(input.longitude),
+    latitude: Number(input.latitude ?? location?.lat),
+    longitude: Number(input.longitude ?? location?.lng),
     avgPrepMinutes: Number(input.avg_prep_minutes),
     rating: String(input.rating),
   };

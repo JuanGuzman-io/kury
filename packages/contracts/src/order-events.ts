@@ -54,6 +54,7 @@ export interface OrderCreatedPayload {
   total_amount: number | string;
   promised_at: string;
   weather: Weather;
+  dropoff?: { lat: number; lng: number };
 }
 
 export interface OrderStatusChangedPayload {

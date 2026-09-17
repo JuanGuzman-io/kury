@@ -1,8 +1,16 @@
 # Uso de inteligencia artificial
 
-## Herramienta utilizada
+## Herramientas utilizadas
 
-Se utilizó Codex como asistente de desarrollo y revisión, junto con el flujo Speckit para convertir el business case en constitución, especificaciones, planes, tareas e implementación.
+Se utilizó [GitHub Spec Kit](https://github.com/github/spec-kit), un toolkit open source para desarrollo guiado por especificaciones, junto con Codex como agente de desarrollo y revisión.
+
+Spec Kit se utilizó mediante el flujo de skills `/speckit-*` y sus artefactos versionados en `.specify/` y `specs/`. En particular, se siguió el ciclo:
+
+```text
+constitution → specify → clarify → plan → tasks → implement
+```
+
+El proceso permitió llevar cada user story desde el alcance funcional hasta el plan, las tareas, los contratos y la implementación revisable. La constitución se creó una vez para el proyecto y el ciclo de especificación se repitió para cada feature.
 
 La dirección técnica, el alcance, la selección de patrones y la revisión final de los cambios pertenecen al desarrollador. No se incorporaron credenciales ni código generado sin validación.
 
@@ -15,6 +23,20 @@ La dirección técnica, el alcance, la selección de patrones y la revisión fin
 - revisar accesibilidad, responsive layout y microinteracciones del panel;
 - diagnosticar errores durante las pruebas locales;
 - redactar documentación técnica y decisiones de arquitectura.
+
+## Uso concreto de GitHub Spec Kit
+
+Spec Kit se utilizó para estructurar el business case en siete incrementos trazables:
+
+1. Ingesta y reconstrucción del estado de pedidos.
+2. Consulta, listado y detalle de pedidos.
+3. Detección y explicación de riesgo.
+4. Asistente conversacional y tool calling.
+5. Reglas de soporte y ejecución de acciones.
+6. Aprobaciones humanas y trazabilidad.
+7. Panel de operaciones.
+
+Para cada incremento se revisaron los artefactos de requisitos, contrato, modelo de datos, investigación, plan, quickstart, checklist y tareas antes de implementar. Las aclaraciones se resolvieron explícitamente antes de continuar el ciclo, y las decisiones resultantes quedaron reflejadas en el código y la documentación.
 
 ## Ejemplos de revisión y corrección
 

@@ -6,6 +6,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import type { Response } from 'express';
+import { QueryFailedError } from 'typeorm';
 import { OrderDomainError } from '../../../domain/orders/errors/order-domain.error';
 
 type HttpLocals = Record<string, unknown> & { traceId?: string };
@@ -49,6 +50,15 @@ export class HttpErrorFilter implements ExceptionFilter {
       });
       return;
     }
+    if (isForeignKeyViolation(exception)) {
+      response.status(HttpStatus.UNPROCESSABLE_ENTITY).json({
+        code: 'REFERENCE_NOT_FOUND',
+        message: 'A referenced restaurant or courier does not exist.',
+        details: [],
+        trace_id: traceId,
+      });
+      return;
+    }
     response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
       code: 'INTERNAL_ERROR',
       message: 'An unexpected error occurred.',
@@ -56,4 +66,9 @@ export class HttpErrorFilter implements ExceptionFilter {
       trace_id: traceId,
     });
   }
+}
+
+function isForeignKeyViolation(exception: unknown): boolean {
+  if (!(exception instanceof QueryFailedError)) return false;
+  return (exception.driverError as { code?: string }).code === '23503';
 }

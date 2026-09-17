@@ -12,7 +12,7 @@ async function bootstrap() {
   app.enableCors({
     origin: ['http://localhost:3000'],
     methods: ['GET', 'POST', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Accept', 'X-Kuri-Role'],
+    allowedHeaders: ['Content-Type', 'Accept', 'X-Kuri-Role', 'X-Kuri-User-Id'],
   });
   app.use(json({ limit: '256kb', strict: true }));
   app.useGlobalPipes(

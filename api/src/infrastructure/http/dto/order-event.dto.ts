@@ -116,7 +116,15 @@ export function parseOrderEventInput(value: unknown): IngestOrderEventCommand {
   const body = object(value, 'Body');
   exactKeys(
     body,
-    ['event_id', 'order_id', 'type', 'occurred_at', 'received_at', 'payload'],
+    [
+      'event_id',
+      'order_id',
+      'type',
+      'status',
+      'occurred_at',
+      'received_at',
+      'payload',
+    ],
     'Body',
   );
   const eventId = sourceId(body.event_id, 'event_id');
@@ -128,7 +136,16 @@ export function parseOrderEventInput(value: unknown): IngestOrderEventCommand {
   );
   const occurredAt = instant(body.occurred_at, 'occurred_at');
   const receivedAt = instant(body.received_at, 'received_at');
-  const payload = object(body.payload, 'payload');
+  const payload = { ...object(body.payload, 'payload') };
+  if (body.status !== undefined) {
+    if (payload.status !== undefined)
+      throw new OrderDomainError(
+        'VALIDATION_ERROR',
+        'status must be provided either at the event root or in payload.',
+        400,
+      );
+    payload.status = body.status;
+  }
 
   if (type === 'ORDER_CREATED') {
     exactKeys(
@@ -142,6 +159,7 @@ export function parseOrderEventInput(value: unknown): IngestOrderEventCommand {
         'total_amount',
         'promised_at',
         'weather',
+        'dropoff',
       ],
       'payload',
     );
@@ -160,10 +178,17 @@ export function parseOrderEventInput(value: unknown): IngestOrderEventCommand {
       const item = object(value, `items[${index}]`);
       exactKeys(
         item,
-        ['sku', 'name', 'quantity', 'unit_price'],
+        ['sku', 'name', 'qty', 'quantity', 'unit_price'],
         `items[${index}]`,
       );
-      const quantity = item.quantity;
+      if (item.qty !== undefined && item.quantity !== undefined) {
+        throw new OrderDomainError(
+          'VALIDATION_ERROR',
+          `items[${index}] must use either qty or quantity, not both.`,
+          400,
+        );
+      }
+      const quantity = item.quantity ?? item.qty;
       if (
         !Number.isInteger(quantity) ||
         (quantity as number) < 1 ||
@@ -191,6 +216,10 @@ export function parseOrderEventInput(value: unknown): IngestOrderEventCommand {
         'promised_at must be after occurred_at.',
         422,
       );
+    const dropoff =
+      payload.dropoff === undefined
+        ? undefined
+        : coordinates(payload.dropoff, 'payload.dropoff');
     const createdOrder = {
       userId: sourceId(payload.user_id, 'payload.user_id'),
       city: enumValue(payload.city, cityCodes, 'payload.city'),
@@ -210,7 +239,7 @@ export function parseOrderEventInput(value: unknown): IngestOrderEventCommand {
         user_id: createdOrder.userId,
         city: createdOrder.city,
         restaurant_id: createdOrder.restaurantId,
-        actor: enumValue(payload.actor, eventActors, 'payload.actor'),
+        actor: enumValue(payload.actor ?? 'USER', eventActors, 'payload.actor'),
         items: items.map((item) => ({
           sku: item.sku,
           name: item.name,
@@ -220,6 +249,7 @@ export function parseOrderEventInput(value: unknown): IngestOrderEventCommand {
         total_amount: totalAmountCents / 100,
         promised_at: promisedAt.toISOString(),
         weather: createdOrder.weather,
+        ...(dropoff ? { dropoff } : {}),
       },
     };
     const event: OrderEvent = {
@@ -245,6 +275,7 @@ export function parseOrderEventInput(value: unknown): IngestOrderEventCommand {
         total_amount_cents: totalAmountCents,
         promised_at: promisedAt.toISOString(),
         weather: createdOrder.weather,
+        ...(dropoff ? { dropoff } : {}),
       },
       contentHash: eventContentHash(input),
       ingestionSequence: 0,
@@ -325,4 +356,31 @@ export function parseOrderEventInput(value: unknown): IngestOrderEventCommand {
       createdOrder: null,
     },
   };
+}
+
+function coordinates(
+  value: unknown,
+  label: string,
+): { lat: number; lng: number } {
+  const point = object(value, label);
+  exactKeys(point, ['lat', 'lng'], label);
+  const lat = point.lat;
+  const lng = point.lng;
+  if (
+    typeof lat !== 'number' ||
+    !Number.isFinite(lat) ||
+    lat < -90 ||
+    lat > 90 ||
+    typeof lng !== 'number' ||
+    !Number.isFinite(lng) ||
+    lng < -180 ||
+    lng > 180
+  ) {
+    throw new OrderDomainError(
+      'VALIDATION_ERROR',
+      `${label} must contain valid latitude and longitude.`,
+      400,
+    );
+  }
+  return { lat, lng };
 }

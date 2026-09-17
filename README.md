@@ -58,7 +58,7 @@ pnpm dev:web
 
 Abre [http://localhost:3000/orders](http://localhost:3000/orders). El chat de prueba está en [http://localhost:3000/chat](http://localhost:3000/chat).
 
-`pnpm local:up` levanta PostgreSQL y la API. El frontend se ejecuta separado para conservar hot reload durante el desarrollo.
+`pnpm local:up` levanta PostgreSQL, la API y el frontend mediante Docker Compose. Durante el desarrollo también puedes usar `pnpm dev:web` o `pnpm dev:api` por separado para hot reload; en ese caso detén el servicio equivalente de Compose para evitar conflictos de puerto.
 
 ## Dataset
 
@@ -67,6 +67,8 @@ Genera y carga el dataset sintético determinista:
 ```bash
 pnpm data:seed -- --seed 20260915 --orders 1500
 ```
+
+El generador produce `events.jsonl`, `restaurants.json` y `couriers.json` con la forma del Anexo A: `status` en el evento de cambio, `qty` en los ítems, `dropoff` en la creación y `location` en restaurantes. La ingesta normaliza ese formato al contrato interno y acepta también el formato canónico usado por las pruebas.
 
 También puedes ejecutar las etapas por separado:
 

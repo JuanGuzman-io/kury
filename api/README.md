@@ -11,4 +11,6 @@ pnpm dev:api
 ```
 
 La API exige `X-Kuri-Role: SYSTEM` para ingesta y `SYSTEM` u `OPS` para consulta. Los importes se
-normalizan a centavos enteros y las respuestas no exponen PII de couriers.
+normalizan a centavos enteros y las respuestas no exponen PII de couriers. El parser acepta el
+esquema externo del Anexo A y lo normaliza antes de llegar al dominio; los campos de transporte no
+se mezclan con el modelo interno.
