@@ -2,8 +2,19 @@ import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
 import type { OrderEventInput, OrderStatus } from '@kuri/contracts';
 
+/**
+ * Small deterministic pseudo-random generator used to make synthetic datasets
+ * reproducible. This is intentionally not cryptographically secure and must
+ * not be used for secrets, identifiers with security requirements, or money.
+ */
 class Random {
   constructor(private state: number) {}
+
+  /**
+   * Advances the 32-bit generator state and returns a normalized value in
+   * [0, 1). The bitwise operations intentionally emulate unsigned 32-bit
+   * arithmetic so the same seed produces the same dataset on every run.
+   */
   next(): number {
     this.state |= 0;
     this.state = (this.state + 0x6d2b79f5) | 0;
@@ -11,14 +22,24 @@ class Random {
     value = (value + Math.imul(value ^ (value >>> 7), 61 | value)) ^ value;
     return ((value ^ (value >>> 14)) >>> 0) / 4_294_967_296;
   }
+
+  /** Returns an integer in the half-open range [0, max). */
   integer(max: number): number {
     return Math.floor(this.next() * max);
   }
+
+  /** Selects one item uniformly by using its zero-based array index. */
   choice<T>(values: readonly T[]): T {
     return values[this.integer(values.length)];
   }
 }
 
+/**
+ * Generates the deterministic synthetic dataset used when the business-case
+ * files are unavailable. It creates reference data and order events, adds
+ * controlled duplicate and out-of-order deliveries, then writes the external
+ * Anexo A representation consumed by the dataset loader.
+ */
 export async function generateDataset(
   seed: number,
   orderCount: number,
@@ -172,6 +193,8 @@ export async function generateDataset(
 }
 
 function toAnnexEvent(event: OrderEventInput): Record<string, unknown> {
+  // Keep generated files aligned with the external business-case schema while
+  // the ingestion boundary normalizes them to the internal canonical shape.
   if (event.type === 'ORDER_CREATED') {
     const { actor, items, ...payload } = event.payload;
     void actor;
